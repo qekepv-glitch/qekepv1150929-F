@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>N-2-13 鐘面的時刻動態探究工具</title>
-    <!-- 載入網頁外觀控制工具 (Tailwind CSS) -->
+    <!-- 載入外觀控制工具 (Tailwind CSS) -->
     <script src="https://tailwindcss.com"></script>
     <!-- 載入網頁核心大腦 (React 與 Babel) -->
     <script src="https://unpkg.com" crossorigin></script>
@@ -16,7 +16,7 @@
     <!-- 網頁渲染的起點 -->
     <div id="root"></div>
 
-    <!-- 核心網頁程式碼：已轉換為瀏覽器直接相容格式 -->
+    <!-- 核心網頁程式碼：修復動畫與時序問題的完美版 -->
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
@@ -26,34 +26,29 @@
           const [k, setK] = useState(3); // 參數 k: 起始整點 (1 ~ 12時)
           const [h, setH] = useState(4); // 參數 h: 變動量 (Mode 1: 單位5分鐘, Mode 2: 經過小時)
           const [isPlaying, setIsPlaying] = useState(false);
-          const animationRef = useRef(null);
-
+          
           const maxT = 10;
+          const timerRef = useRef(null);
 
-          // 動態動畫控制 (撥動指針進程)
+          // 🛠️ 重新改寫最穩定的動畫定時器，徹底解決卡死與動不了的問題
           useEffect(() => {
             if (isPlaying) {
-              let lastTime = performance.now();
-              const animate = (currentTime) => {
-                const deltaTime = currentTime - lastTime;
-                lastTime = currentTime;
-                
+              timerRef.current = setInterval(() => {
                 setT((prevT) => {
-                  const nextT = prevT + (deltaTime / 1000) * 2.5; // 每秒前進 2.5 單位
+                  const nextT = prevT + 0.1; // 每次平滑增加進度
                   if (nextT >= maxT) {
                     setIsPlaying(false);
                     return maxT;
                   }
                   return nextT;
                 });
-                animationRef.current = requestAnimationFrame(animate);
-              };
-              animationRef.current = requestAnimationFrame(animate);
+              }, 40); // 每 40 毫秒刷新一次，確保動畫極度順暢
             } else {
-              if (animationRef.current) cancelAnimationFrame(animationRef.current);
+              if (timerRef.current) clearInterval(timerRef.current);
             }
+            
             return () => {
-              if (animationRef.current) cancelAnimationFrame(animationRef.current);
+              if (timerRef.current) clearInterval(timerRef.current);
             };
           }, [isPlaying]);
 
@@ -141,19 +136,19 @@
                       <div className="flex gap-2">
                         <button 
                           onClick={handlePlayPause}
-                          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-semibold text-sm transition-colors"
+                          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors shadow"
                         >
                           {isPlaying ? (
-                            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> 暫停</>
+                            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline mr-1"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>暫停</>
                           ) : (
-                            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> {t >= maxT ? '重新演示' : '自動演示'}</>
+                            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline mr-1"><polygon points="5 3 19 12 5 21 5 3"/></svg>{t >= maxT ? '重新演示' : '自動演示'}</>
                           )}
                         </button>
                         <button 
                           onClick={handleReset}
-                          className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg font-semibold text-sm transition-colors"
+                          className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors shadow"
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> 重置
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline mr-1"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>重置
                         </button>
                       </div>
                     </div>
@@ -164,7 +159,7 @@
                         <div className="flex justify-between text-sm text-gray-700 font-semibold mb-1">
                           <span>教學模式: {a === 1 ? "幾時幾分 (五個一數)" : "兩整點數 (經過時間)"}</span>
                         </div>
-                        <input type="range" min="1" max="2" step="1" value={a} onChange={(e) => { setA(parseInt(e.target.value)); setIsPlaying(false); }} className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
+                        <input type="range" min="1" max="2" step="1" value={a} onChange={(e) => { setA(parseInt(e.target.value)); setIsPlaying(false); setT(0); }} className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
                       </div>
                       <div>
                         <div className="flex justify-between text-sm text-gray-700 font-semibold mb-1">
@@ -191,7 +186,7 @@
                         type="range"
                         min="0"
                         max="10"
-                        step="0.05"
+                        step="0.01"
                         value={t}
                         onChange={(e) => {
                           setT(parseFloat(e.target.value));
@@ -204,3 +199,5 @@
 
                   <div className="flex flex-col lg:flex-row gap-6">
                     
+                    {/* 左側：主鐘面與指針動態 */}
+                    <div className="w-full lg:w-2/3 flex flex-col">
