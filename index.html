@@ -6,6 +6,8 @@
     <title>N-2-13 鐘面的時刻動態探究工具</title>
     <!-- 載入外觀控制工具 (Tailwind CSS) -->
     <script src="https://tailwindcss.com"></script>
+    <!-- 載入小圖示 (Lucide Icons) -->
+    <script src="https://unpkg.com"></script>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800">
 
@@ -32,14 +34,14 @@
           
           <!-- 上方：控制面板 -->
           <div class="bg-white rounded-lg border-2 border-gray-200 p-5 shadow-sm w-full">
-            <div className="flex items-center justify-between mb-4 border-b pb-2" class="flex justify-between items-center mb-4 border-b pb-2">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
               <h3 class="text-lg font-bold">互動控制與參數設定</h3>
               <div class="flex gap-2">
                 <button id="btn-play" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors shadow">
-                  自動演示
+                  <i data-lucide="play" class="w-4 h-4"></i><span id="btn-play-text">自動演示</span>
                 </button>
                 <button id="btn-reset" class="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors shadow">
-                  重置
+                  <i data-lucide="refresh-cw" class="w-4 h-4"></i>重置
                 </button>
               </div>
             </div>
@@ -77,6 +79,7 @@
             </div>
           </div>
 
+          <!-- 下方佈局：鐘面與數據卡片 -->
           <div class="flex flex-col lg:flex-row gap-6">
             
             <!-- 左側：主鐘面與指針動態 -->
@@ -86,8 +89,8 @@
                 <svg viewBox="0 0 600 600" class="w-full h-full max-w-[500px]" id="clock-svg">
                   
                   <!-- 鐘面外框與底色 -->
-                  <circle cx="300" cy="300" r="210" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="8" />
-                  <circle cx="300" cy="300" r="195" fill="#ffffff" stroke="#94a3b8" strokeWidth="2" />
+                  <circle cx="300" cy="300" r="210" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="8" />
+                  <circle cx="300" cy="300" r="195" fill="#ffffff" stroke="#94a3b8" stroke-width="2" />
 
                   <!-- 刻度與數字將由 JS 動態生成 -->
                   <g id="clock-ticks"></g>
@@ -112,6 +115,7 @@
 
             <!-- 右側：即時數據與課綱概念對應 -->
             <div class="w-full lg:w-1/3 flex flex-col gap-4 pt-0 lg:pt-12">
+              
               <div class="bg-emerald-50 rounded-lg p-5 border border-emerald-100">
                 <div class="text-sm text-emerald-700 font-semibold mb-2">時鐘時刻與點數意義</div>
                 <div id="text-colloquial" class="text-2xl lg:text-3xl font-bold text-gray-800 break-all mb-3 text-emerald-900">3 點 鐘</div>
@@ -164,6 +168,7 @@
         const iconStatus = document.getElementById('icon-status');
         
         const btnPlay = document.getElementById('btn-play');
+        const btnPlayText = document.getElementById('btn-play-text');
         const btnReset = document.getElementById('btn-reset');
         
         const tickGroup = document.getElementById('clock-ticks');
@@ -175,7 +180,6 @@
 
         // 初始化鐘面靜態刻度與數字
         function initClock() {
-            // 生成 60 個刻度
             let ticksHtml = '';
             for (let i = 0; i < 60; i++) {
                 const isHour = i % 5 === 0;
@@ -183,15 +187,8 @@
             }
             tickGroup.innerHTML = ticksHtml;
 
-            // 生成 12 個數字
             let numbersHtml = '';
             for (let i = 1; i <= 12; i++) {
                 const angle = (i * 30 - 90) * Math.PI / 180;
                 const x = 300 + 145 * Math.cos(angle);
                 const y = 300 + 145 * Math.sin(angle) + 12;
-                numbersHtml += `<text x="${x}" y="${y}" font-size="34" font-weight="900" text-anchor="middle" fill="#1e293b">${i}</text>`;
-            }
-            numberGroup.innerHTML = numbersHtml;
-        }
-
-        // 核心渲染更新函數
