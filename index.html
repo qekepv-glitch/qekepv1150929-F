@@ -1,199 +1,892 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>N-2-13 鐘面的時刻動態探究工具</title>
-    <!-- 載入外觀控制與 React 環境 -->
-    <script src="https://tailwindcss.com"></script>
-    <script src="https://unpkg.com" crossorigin></script>
-    <script src="https://unpkg.com" crossorigin></script>
-    <script src="https://unpkg.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英文閱讀理解互動教材</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #F0EFEB;
+      color: #5A5E5B;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #F0EFEB;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #C7BCA1;
+      border-radius: 4px;
+    }
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.95; transform: scale(0.99); }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 2s infinite ease-in-out;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 font-sans text-gray-800">
+<body>
 
-    <!-- 網頁渲染起點 -->
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <!-- 採用 React 官方獨立編譯模式，百分之百保留原版排版與動畫 -->
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-        const App = () => {
-          const [t, setT] = useState(0); 
-          const [a, setA] = useState(1); 
-          const [k, setK] = useState(3); 
-          const [h, setH] = useState(4); 
-          const [isPlaying, setIsPlaying] = useState(false);
-          const animationRef = useRef(null);
+    // 配色定義
+    const C = {
+      bg: '#F0EFEB',
+      card: '#FFFFFF',
+      text: '#5A5E5B',
+      textL: '#8C908D',
+      pri: '#8BA09E',
+      priH: '#738684',
+      acc: '#C7BCA1',
+      accH: '#B3A88D',
+      off: '#DCDAD2',
+      bdr: '#E3E1D9',
+      ok: '#8E9E82',
+      err: '#B58784'
+    };
 
-          const maxT = 10;
+    // 預設閱讀文章資料 (挪威馴鹿事件)
+    const initialStoryData = [
+      {
+        id: 1, emoji: "🦌⚡️",
+        tasks: [
+          { title: "找找看：什麼造成了這場災難？", hint: "請點擊代表『造成馴鹿死亡的自然力量』的單字。", words: ["lightning"], msg: "答對了！『lightning』(閃電) 是造成這場災難的原因。" },
+          { title: "找找看：受害的是什麼動物？", hint: "請點擊代表『受到閃電影響的動物』的單字組合。", words: ["wild", "reindeer"], msg: "沒錯！『wild reindeer』(野生馴鹿) 是主角。" },
+          { title: "找找看：事件發生在什麼時候？", hint: "請點擊代表『星期幾』的單字。", words: ["friday"], msg: "答對了！事件發生在『Friday』(星期五)。" }
+        ],
+        sentences: [
+          { en: "Lightning is being blamed for the deaths of 323 wild reindeer in central Norway.", zh: "閃電被認為是造成挪威中部323隻野生馴鹿死亡的原因。" },
+          { en: "The lightning storm took place in a small area of the Hardangervidda mountain plateau last Friday.", zh: "這場雷暴發生在上週五哈當厄爾高原的一個小區域。" },
+          { en: "Every year, thousands of reindeer travel across the Hardangervidda mountain area.", zh: "每年，成千上萬的馴鹿都會穿越哈當厄爾山區。" }
+        ]
+      },
+      {
+        id: 2, emoji: "👨‍💼🗣️",
+        tasks: [
+          { title: "找出細節：死亡馴鹿中有什麼特別的？", hint: "請點擊代表『幼獸、小牛』的單字。", words: ["calves"], msg: "答對了！『calves』是 calf 的複數。" },
+          { title: "找出身分：誰代表官方說話？", hint: "請點擊代表『發言人』的單字。", words: ["spokesman"], msg: "沒錯！『spokesman』= 發言人。" },
+          { title: "尋找關鍵態度：官方覺得正常嗎？", hint: "請點擊代表『不尋常』的單字。", words: ["unusual"], msg: "答對了！『unusual』= un + usual = 不尋常。" }
+        ],
+        sentences: [
+          { en: "The Norwegian Environment Agency is a government agency that reports on climate and environmental issues in Norway.", zh: "挪威環境局是負責報告挪威氣候和環境問題的政府機構。" },
+          { en: "The agency said 70 calves were among the dead reindeer.", zh: "該機構表示，死亡的馴鹿中有70隻是小牛。" },
+          { en: "Kjartan Knutsen is the spokesman for the Norwegian Environment Agency.", zh: "Kjartan Knutsen 是挪威環境局的發言人。" },
+          { en: "Knutsen told the Associated Press that it was unusual to have such a large number of reindeer deaths in one lightning storm.", zh: "Knutsen 告訴美聯社，在一次雷暴中發生如此大量的馴鹿死亡是不尋常的。" },
+          { en: "\"We have not heard about such numbers before,\" he said.", zh: "他說：「我們以前從未聽說過這樣的數字。」" }
+        ]
+      },
+      {
+        id: 3, emoji: "🦌🦌🌩️",
+        tasks: [
+          { title: "找出原因：馴鹿在壞天氣時會怎樣？", hint: "請點擊代表『群聚在一起』的單字組合。", words: ["group", "together"], msg: "答對了！『group together』= 群聚在一起。" },
+          { title: "找出推測語氣：這是確定的嗎？", hint: "請點擊代表『可能的』的形容詞。", words: ["possible"], msg: "沒錯！『possible』= 可能的。" },
+          { title: "找出時間概念：災難發生得快還是慢？", hint: "請點擊代表『一瞬間』的單字。", words: ["moment"], msg: "答對了！『moment』= 瞬間。" }
+        ],
+        sentences: [
+          { en: "Knutsen said reindeer like to group together in bad weather.", zh: "Knutsen 說馴鹿在惡劣天氣下喜歡聚集在一起。" },
+          { en: "This may be a possible reason for their deaths.", zh: "這可能是牠們死亡的原因。" },
+          { en: "He said, \"I don't know if there were several lightning strikes, but it happened in one moment.\"", zh: "他說：『我不知道是否有幾次雷擊，但它發生在一瞬間。』" }
+        ]
+      },
+      {
+        id: 4, emoji: "🌱🦴",
+        tasks: [
+          { title: "理解動作：機構正在做什麼？", hint: "請點擊代表『討論』的動詞。", words: ["discussing"], msg: "答對了！『discussing』= 討論中。" },
+          { title: "理解慣例：通常怎麼處理？", hint: "請點擊代表『留在原處』的動詞。", words: ["leaves"], msg: "沒錯！『leaves』這裡是 leave（留下），不是葉子。" },
+          { title: "理解結果：最後怎麼處理？", hint: "請點擊代表『自然分解』的單字。", words: ["decompose"], msg: "答對了！『decompose』= 分解。" }
+        ],
+        sentences: [
+          { en: "The agency is discussing what to do with the reindeer.", zh: "該機構正在討論如何處理這些馴鹿。" },
+          { en: "Usually the agency leaves the body of a dead animal wherever it is found, Knutsen said.", zh: "Knutsen 說，通常該機構會將死去的動物屍體留在被發現的地方。" },
+          { en: "That way they can decompose in the natural way.", zh: "這樣牠們就可以自然分解。" }
+        ]
+      }
+    ];
 
-          useEffect(() => {
-            if (isPlaying) {
-              let lastTime = performance.now();
-              const animate = (currentTime) => {
-                const deltaTime = currentTime - lastTime;
-                lastTime = currentTime;
-                
-                setT((prevT) => {
-                  const nextT = prevT + (deltaTime / 1000) * 2.5; 
-                  if (nextT >= maxT) {
-                    setIsPlaying(false);
-                    return maxT;
-                  }
-                  return nextT;
-                });
-                animationRef.current = requestAnimationFrame(animate);
-              };
-              animationRef.current = requestAnimationFrame(animate);
-            } else {
-              if (animationRef.current) cancelAnimationFrame(animationRef.current);
-            }
-            return () => {
-              if (animationRef.current) cancelAnimationFrame(animationRef.current);
-            };
-          }, [isPlaying]);
+    // 預設測驗資料
+    const initialQuizData = [
+      { q: "What is the main idea of this reading?", opts: ["How reindeer survive in winter.", "A lightning storm that killed many reindeer.", "The job of the Norwegian Environment Agency.", "How to protect animals from bad weather."], ans: 1, exp: "【主旨題】(B) 一場殺死許多馴鹿的雷暴。" },
+      { q: "Where did this event happen?", opts: ["In a zoo.", "On a mountain plateau in Norway.", "In a forest in America.", "Near a river."], ans: 1, exp: "【細節題】(B) 在挪威的山地高原上。" },
+      { q: "Why did so many reindeer die at the same time?", opts: ["Because they were drinking water together.", "Because they were sleeping.", "Because they group together when the weather is bad.", "Because they were running away from hunters."], ans: 2, exp: "【推論題】(C) 天氣不好時聚在一起。" },
+      { q: "What does the Environment Agency usually do with dead wild animals?", opts: ["They bury them.", "They take them to a hospital.", "They eat them.", "They leave them to decompose in nature."], ans: 3, exp: "【細節題】(D) 讓牠們在自然中分解。" },
+      { q: "What does the word \"unusual\" mean?", opts: ["Happening very often.", "Very common.", "Not happening very often; strange.", "Beautiful."], ans: 2, exp: "【單字題】(C) 不常發生。" }
+    ];
 
-          const handlePlayPause = () => {
-            if (t >= maxT) setT(0);
-            setIsPlaying(!isPlaying);
-          };
+    // 預設經典文章範例（提供給生成器使用）
+    const PRESET_ARTICLES = [
+      {
+        title: "🦌 挪威閃電與野生馴鹿 (預設主題)",
+        text: "Lightning is being blamed for the deaths of 323 wild reindeer in central Norway. The lightning storm took place in a small area of the Hardangervidda mountain plateau last Friday. Every year, thousands of reindeer travel across the Hardangervidda mountain area. The Norwegian Environment Agency is a government agency that reports on climate and environmental issues in Norway. The agency said 70 calves were among the dead reindeer. Kjartan Knutsen is the spokesman for the Norwegian Environment Agency. Knutsen told the Associated Press that it was unusual to have such a large number of reindeer deaths in one lightning storm. Knutsen said reindeer like to group together in bad weather. This may be a possible reason for their deaths. The agency is discussing what to do with the reindeer. Usually the agency leaves the body of a dead animal wherever it is found, so that they can decompose in the natural way."
+      },
+      {
+        title: "🚀 火星探測車探索紅星球 (Mars Rover)",
+        text: "Robotic rovers are currently exploring the surface of Mars. Scientists send these high tech vehicles to search for signs of ancient liquid water. The surface of Mars is very cold and dry with red dust everywhere. NASA scientists operate the rovers from Earth using solar power and powerful radar sensors. Finding water on Mars helps humans prepare for future space missions."
+      },
+      {
+        title: "☕ 咖啡的神秘歷史與起源 (History of Coffee)",
+        text: "Legend says coffee was first discovered by an Ethiopian goat shepherd named Kaldi. He noticed his goats became energetic after eating wild red berries. Later, monks used these berries to make drinks that kept them awake during long night prayers. Today, coffee is one of the most popular beverages in the entire world, enjoyed by millions of people every morning."
+      },
+      {
+        title: "🐬 海豚的智慧與神奇聲納 (Dolphin Intelligence)",
+        text: "Dolphins are known to be among the smartest animals in the ocean. They communicate with each other using complex whistles and clicks. Dolphins also use echolocation to navigate dark water and hunt for fish. They swim in friendly groups called pods and often protect each other from danger."
+      }
+    ];
 
-          const handleReset = () => {
-            setIsPlaying(false);
-            setT(0);
-          };
+    // 停用詞設定
+    const STOPS = 'the a an is are was were be been being have has had do does did will would could should may might shall can to of in for on with at by from as into through during before after above below between out off over under again further then once here there when where why how all both each few more most other some such no nor not only own same so than too very just because but and or if while that this these those it its he she they them their his her we our us me my you your said also about up which who whom what much many like get got make made take took come came know knew think thought say see saw go went new now way back well even want give use find tell ask work seem feel try leave call need become keep let begin show hear play run move live put down still long every year could only does';
+    const STOP_SET = new Set(STOPS.split(' '));
 
-          const svgWidth = 600;
-          const svgHeight = 600;
-          const originX = 300; 
-          const originY = 300; 
+    function getKeywords(text) {
+      const words = text.toLowerCase().match(/[a-z]+/g) || [];
+      const freq = {};
+      words.forEach(function(w) {
+        if (w.length > 3 && !STOP_SET.has(w)) {
+          freq[w] = (freq[w] || 0) + 1;
+        }
+      });
+      return Object.keys(freq).sort(function(a, b) {
+        return (freq[b] * 2 + b.length) - (freq[a] * 2 + a.length);
+      });
+    }
 
-          let currentMinuteValue = 0;
-          let currentHourValue = k;
-          let currentHourOffset = 0;
+    function localGenerate(text, level) {
+      var raw = text.match(/[^.!?]+[.!?]+/g) || text.split('\n');
+      var sentences = [];
+      for (var i = 0; i < raw.length; i++) {
+        var s = raw[i].trim();
+        if (s.length > 5) sentences.push(s);
+      }
+      if (sentences.length === 0) return null;
 
-          if (a === 1) {
-            const targetMinute = h * 5;
-            currentMinuteValue = (t / 10) * targetMinute;
-            currentHourValue = k + (currentMinuteValue / 60);
-          } else {
-            currentHourOffset = (t / 10) * h;
-            currentHourValue = k + currentHourOffset;
-            currentMinuteValue = 0;
+      if (level === 'elementary') {
+        var dialogue = [];
+        var dCount = Math.min(8, sentences.length);
+        for (var d = 0; d < dCount; d++) {
+          dialogue.push({ speaker: d % 2 === 0 ? 'A' : 'B', english: sentences[d], chinese: "（點擊發音按鈕朗讀該句）" });
+        }
+        var kw = getKeywords(text);
+        var keyVocab = [];
+        for (var v = 0; v < Math.min(5, kw.length); v++) {
+          var ex = "";
+          for (var si = 0; si < sentences.length; si++) {
+            if (sentences[si].toLowerCase().indexOf(kw[v]) !== -1) { ex = sentences[si]; break; }
           }
+          keyVocab.push({ word: kw[v], translation: "核心關鍵字", example: ex || "This sentence contains the word " + kw[v] + "." });
+        }
+        if (dialogue.length === 0) return null;
+        return { type: 'elementary', dialogue: dialogue, keyVocab: keyVocab, quiz: makeQuiz(sentences, kw) };
+      }
 
-          const getColloquialText = () => {
-            if (a === 1) {
-              const displayMin = Math.round(currentMinuteValue);
-              const displayHour = Math.floor(currentHourValue) % 12 || 12;
-              return `${displayHour} 點 ${displayMin === 0 ? "鐘" : `${displayMin} 分`}`;
-            } else {
-              const startHr = k % 12 || 12;
-              const endHr = Math.floor(k + currentHourOffset) % 12 || 12;
-              return `從 ${startHr} 點到 ${endHr} 點，經過了 ${Math.floor(currentHourOffset)} 小時`;
-            }
-          };
+      var numP = Math.min(4, Math.max(2, Math.ceil(sentences.length / 3)));
+      var perP = Math.ceil(sentences.length / numP);
+      var emojis = ["📰", "🔍", "💡", "🎯"];
+      var labels = [
+        { t: "找出關鍵詞：這段重點單字是什麼？", h: "請點擊文章中的核心關鍵單字。" },
+        { t: "再找一個：還有哪個重點單字？", h: "請點擊另一個重要的英文單字。" },
+        { t: "最後一個：你還注意到哪個字？", h: "請點擊最後一個值得學習的關鍵單字。" }
+      ];
+      var paragraphs = [];
+      var used = [];
 
-          const getStatus = () => {
-            if (t === 0) return { text: "準備進行鐘面撥動操作", color: "text-gray-600", icon: "○" };
-            if (t < maxT) return { text: a === 1 ? "正在撥動分針，觀察五個一數..." : "正在點數整點，觀察時針跳動...", color: "text-blue-500", icon: "➔" };
-            return { text: "操作完成！觀察最終指針位置", color: "text-red-500", icon: "●" };
-          };
+      for (var pi = 0; pi < numP; pi++) {
+        var ps = sentences.slice(pi * perP, (pi + 1) * perP);
+        if (ps.length === 0) continue;
+        var allKw = getKeywords(ps.join(' '));
+        var avail = [];
+        for (var ak = 0; ak < allKw.length; ak++) {
+          if (used.indexOf(allKw[ak]) === -1) avail.push(allKw[ak]);
+        }
+        if (avail.length === 0 && allKw.length > 0) avail = allKw.slice(0, 3);
+        if (avail.length === 0) continue;
 
-          const currentStatus = getStatus();
+        var tasks = [];
+        for (var t = 0; t < Math.min(3, avail.length); t++) {
+          var w = avail[t % avail.length];
+          used.push(w);
+          tasks.push({
+            title: labels[t].t,
+            hint: labels[t].h + "（請尋找單字『" + w + "』）",
+            words: [w],
+            msg: "太棒了！『" + w + "』是這段文章的核心單字。"
+          });
+        }
+        if (tasks.length === 0) {
+          tasks.push({ title: "閱讀這一段落", hint: "請點擊段落中的關鍵字", words: [allKw[0] || "the"], msg: "完成練習！" });
+        }
+        paragraphs.push({
+          id: pi + 1, emoji: emojis[pi % 4], tasks: tasks,
+          sentences: ps.map(function(s) { return { en: s, zh: "（請點擊上方句子聽正確英文發音）" }; })
+        });
+      }
+      if (paragraphs.length === 0) return null;
+      return { type: 'junior', paragraphs: paragraphs, quiz: makeQuiz(sentences, getKeywords(text)) };
+    }
 
-          return (
-            <div className="min-h-screen bg-gray-100 p-4 font-sans text-gray-800">
-              <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-                
-                <div className="bg-emerald-600 text-white p-6">
-                  <div className="flex justify-between items-start flex-wrap gap-2">
-                    <div>
-                      <h1 className="text-2xl font-bold mb-2">N-2-13 鐘面的時刻動態探究工具</h1>
-                      <p className="text-emerald-100 text-lg">
-                        以操作活動為主。以鐘面時針與分針之位置認識「幾時幾分」。<br/>
-                        含兩整時時刻之間的整時點數（時間加減的前置經驗）。
-                      </p>
-                    </div>
-                    <span className="bg-emerald-800 text-white text-xl font-bold px-4 py-2 rounded-lg shadow-md border border-emerald-500 font-mono">
-                      n-I-9
+    function makeQuiz(sentences, kw) {
+      var quiz = [];
+      if (sentences.length > 0) {
+        var s0 = sentences[0].length > 70 ? sentences[0].substring(0, 67) + '...' : sentences[0];
+        quiz.push({ q: "Which sentence appears in the text?", opts: [s0, "The weather was sunny all day.", "Many people watched the show.", "The teacher gave a new book."], ans: 0, exp: "【細節題】第一個選項確實來自文章。" });
+      }
+      if (kw.length >= 1) quiz.push({ q: "Which key word is used in this text?", opts: [kw[0], "elephant", "spaceship", "chocolate"], ans: 0, exp: "【字彙題】「" + kw[0] + "」是文章的重要單字。" });
+      if (kw.length >= 3) quiz.push({ q: "Which word is NOT mentioned in this text?", opts: ["dinosaur", kw[1], kw[2], kw[0]], ans: 0, exp: "【反向題】「dinosaur」未出現在文章中。" });
+      if (sentences.length >= 2 && kw.length >= 2) quiz.push({ q: "What does the text mainly talk about?", opts: ["About " + kw[0] + " and " + kw[1] + ".", "A recipe for chocolate cake.", "How to play video games.", "A trip to the grocery store."], ans: 0, exp: "【主旨題】選項 (A) 最貼近文章關鍵字內容。" });
+      if (sentences.length >= 3) {
+        var last = sentences[sentences.length - 1];
+        var ls = last.length > 70 ? last.substring(0, 67) + '...' : last;
+        quiz.push({ q: "Which is closest to the ending sentence?", opts: [ls, "They lived happily ever after.", "The problem was never solved.", "They went home immediately."], ans: 0, exp: "【結尾題】第一個選項來自文章結尾。" });
+      }
+      return quiz.slice(0, 5);
+    }
+
+    // TTS 語音朗讀
+    function speak(text) {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        var u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US';
+        u.rate = 0.85;
+        window.speechSynthesis.speak(u);
+      }
+    }
+
+    function App() {
+      const [name, setName] = useState('');
+      const [started, setStarted] = useState(false);
+      const [tab, setTab] = useState('read');
+      const [lesson, setLesson] = useState({ type: 'junior', paragraphs: initialStoryData, quiz: initialQuizData });
+      const [ver, setVer] = useState(0);
+
+      function onNewLesson(data) {
+        setLesson(data);
+        setVer(function(v) { return v + 1; });
+        setTab('read');
+      }
+
+      // 登入歡迎畫面
+      if (!started) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: C.bg }}>
+            <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border" style={{ borderColor: C.bdr }}>
+              <div className="text-6xl mb-4">📖</div>
+              <h1 className="text-3xl font-bold mb-2" style={{ color: C.pri }}>英文閱讀理解</h1>
+              <p className="mb-8 font-medium" style={{ color: C.textL }}>互動式學習教材與文本解構</p>
+              
+              <div className="text-left mb-6">
+                <label className="block text-sm font-semibold mb-2" style={{ color: C.text }}>請輸入你的名字：</label>
+                <input
+                  type="text"
+                  value={name}
+                  placeholder="例如：王小明"
+                  autoFocus
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) setStarted(true); }}
+                  className="w-full p-4 rounded-xl text-lg outline-none transition-all"
+                  style={{ backgroundColor: C.bg, border: `2px solid ${C.bdr}` }}
+                />
+              </div>
+
+              <button
+                onClick={() => { if (name.trim()) setStarted(true); }}
+                className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-all ${name.trim() ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                style={{ backgroundColor: name.trim() ? C.pri : C.off }}
+              >
+                開始學習 →
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // 頂部導覽列
+      const tabBar = (
+        <header className="sticky top-0 z-50 bg-white border-b shadow-sm" style={{ borderColor: C.bdr }}>
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 font-medium" style={{ color: C.text }}>
+              <span className="text-xl">👤</span>
+              <span className="font-bold">{name}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setTab('read')}
+                className={`px-4 py-2 rounded-lg font-bold text-base transition-all ${tab === 'read' ? 'text-white shadow-sm' : 'hover:bg-gray-100'}`}
+                style={{
+                  backgroundColor: tab === 'read' ? C.pri : 'transparent',
+                  color: tab === 'read' ? 'white' : C.textL
+                }}
+              >
+                📖 閱讀理解
+              </button>
+              <button
+                onClick={() => setTab('upload')}
+                className={`px-4 py-2 rounded-lg font-bold text-base transition-all ${tab === 'upload' ? 'text-white shadow-sm' : 'hover:bg-gray-100'}`}
+                style={{
+                  backgroundColor: tab === 'upload' ? C.pri : 'transparent',
+                  color: tab === 'upload' ? 'white' : C.textL
+                }}
+              >
+                ✍️ 教材生成器
+              </button>
+            </div>
+          </div>
+        </header>
+      );
+
+      let content;
+      if (tab === 'upload') {
+        content = <UploadTab onNewLesson={onNewLesson} />;
+      } else if (lesson.type === 'elementary') {
+        content = <ElemView key={ver} data={lesson} name={name} />;
+      } else {
+        content = <ReadView key={ver} data={lesson} name={name} />;
+      }
+
+      return (
+        <div className="min-h-screen pb-12" style={{ backgroundColor: C.bg, color: C.text }}>
+          {tabBar}
+          <main className="max-w-4xl mx-auto px-4 pt-6">
+            {content}
+          </main>
+        </div>
+      );
+    }
+
+    function ReadView({ data, name }) {
+      const [stage, setStage] = useState(0);
+      const [selSen, setSelSen] = useState(null);
+      const total = data.paragraphs.length;
+
+      const blocks = data.paragraphs.map((para, idx) => (
+        <ParaBlock
+          key={para.id || idx}
+          para={para}
+          active={idx === stage}
+          done={idx < stage}
+          onDone={() => setStage(s => Math.min(s + 1, total))}
+          onSel={setSelSen}
+        />
+      ));
+
+      return (
+        <div className="flex flex-col gap-6">
+          {/* 文章區域 */}
+          <div className="bg-white rounded-2xl border p-6 md:p-8 shadow-sm" style={{ borderColor: C.bdr }}>
+            <h2 className="text-2xl font-bold text-center mb-6" style={{ color: C.pri }}>
+              🎯 文本解構之旅
+            </h2>
+            <div className="flex flex-col gap-6">
+              {blocks}
+            </div>
+
+            {stage >= total && (
+              <div className="mt-6 text-center p-4 rounded-xl font-bold text-lg animate-bounce" style={{ backgroundColor: `${C.ok}22`, color: C.ok }}>
+                🎉 恭喜完成所有段落閱讀解構！請接著進行下方測驗。
+              </div>
+            )}
+          </div>
+
+          {/* 句子翻譯與發音面板 */}
+          <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: C.bdr }}>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: C.pri }}>
+              <span>🔊</span> 句子翻譯與點擊發音
+            </h3>
+            {selSen ? (
+              <div className="p-6 rounded-xl" style={{ backgroundColor: C.bg }}>
+                <p className="text-xl font-medium mb-4 leading-relaxed flex flex-wrap gap-1">
+                  {selSen.en.split(' ').map((w, i) => (
+                    <span
+                      key={i}
+                      onClick={() => speak(w.replace(/[.,!?"]/g, ''))}
+                      className="cursor-pointer px-1 py-0.5 rounded hover:bg-black/10 transition-colors"
+                      title="點擊聽這個單字發音"
+                    >
+                      {w}
                     </span>
+                  ))}
+                </p>
+                <hr className="my-4 border-t" style={{ borderColor: C.bdr }} />
+                <p className="text-lg font-normal" style={{ color: C.text }}>{selSen.zh}</p>
+                <div
+                  onClick={() => speak(selSen.en)}
+                  className="mt-5 px-6 py-2.5 rounded-full font-medium text-center cursor-pointer text-white shadow-sm hover:opacity-90 transition-all max-w-xs mx-auto flex items-center justify-center gap-2"
+                  style={{ backgroundColor: C.pri }}
+                >
+                  <span>🔊</span> 朗讀完整句子
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 rounded-xl border-2 border-dashed text-gray-400" style={{ borderColor: C.bdr }}>
+                👆 請點擊上方文章中的任何一個句子，這裡會顯示該句的單字剖析、翻譯與朗讀按鈕。
+              </div>
+            )}
+          </div>
+
+          {/* 測驗模組 */}
+          {stage >= total && data.quiz && data.quiz.length > 0 && (
+            <QuizBox quiz={data.quiz} name={name} />
+          )}
+        </div>
+      );
+    }
+
+    function ParaBlock({ para, active, done, onDone, onSel }) {
+      const [ti, setTi] = useState(0);
+      const [clicked, setClicked] = useState([]);
+      const [found, setFound] = useState([]);
+      const [solved, setSolved] = useState(false);
+      const [allDone, setAllDone] = useState(done);
+
+      const tasks = para.tasks || [];
+      const total = tasks.length;
+      const task = tasks[ti];
+
+      function onWord(word, sentence) {
+        if (!active || solved || allDone || !task) {
+          onSel(sentence);
+          return;
+        }
+        const cw = word.replace(/[.,!?"]/g, '').toLowerCase();
+        if (task.words.map(w => w.toLowerCase()).indexOf(cw) !== -1) {
+          const next = [...clicked, cw];
+          setClicked(next);
+          let ok = true;
+          for (let i = 0; i < task.words.length; i++) {
+            if (next.indexOf(task.words[i].toLowerCase()) === -1) { ok = false; break; }
+          }
+          if (ok) {
+            setSolved(true);
+            setFound(prev => [...prev, ...task.words.map(w => w.toLowerCase())]);
+          }
+        }
+        onSel(sentence);
+      }
+
+      function nextTask() {
+        if (ti < total - 1) {
+          setTi(i => i + 1);
+          setClicked([]);
+          setSolved(false);
+        } else {
+          setAllDone(true);
+        }
+      }
+
+      function isLit(cw) {
+        if (found.indexOf(cw) !== -1) return true;
+        if (solved && task && task.words.map(w=>w.toLowerCase()).indexOf(cw) !== -1) return true;
+        if (done) {
+          for (let i = 0; i < tasks.length; i++) {
+            if (tasks[i].words.map(w=>w.toLowerCase()).indexOf(cw) !== -1) return true;
+          }
+        }
+        return false;
+      }
+
+      return (
+        <div
+          className={`relative p-6 rounded-xl border-2 transition-all duration-300 ${active ? 'shadow-md bg-white' : 'bg-white/80'}`}
+          style={{
+            borderColor: active ? C.pri : C.bdr,
+            opacity: (active || done) ? 1 : 0.45,
+            pointerEvents: (active || done) ? 'auto' : 'none'
+          }}
+        >
+          {done && (
+            <div className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow border" style={{ borderColor: C.bdr }}>
+              ✅
+            </div>
+          )}
+
+          {/* 任務進度條 */}
+          {active && !allDone && total > 1 && (
+            <div className="flex items-center gap-2 mb-4">
+              {tasks.map((_, idx) => {
+                let bg = C.off;
+                if (idx < ti) bg = C.ok;
+                else if (idx === ti) bg = solved ? C.ok : C.pri;
+                return <div key={idx} className="h-2 flex-1 rounded-full transition-all" style={{ backgroundColor: bg }} />;
+              })}
+              <span className="text-xs font-semibold ml-2" style={{ color: C.textL }}>{ti + 1}/{total}</span>
+            </div>
+          )}
+
+          {/* 任務提示 */}
+          {active && !allDone && task && !solved && (
+            <div className="mb-4 p-4 rounded-xl border-l-4 flex items-start gap-4" style={{ backgroundColor: `${C.acc}22`, borderColor: C.acc }}>
+              <span className="text-3xl">{para.emoji || "💡"}</span>
+              <div>
+                <h4 className="font-bold text-lg" style={{ color: C.text }}>{task.title}</h4>
+                <p className="text-sm mt-1" style={{ color: C.textL }}>{task.hint}</p>
+              </div>
+            </div>
+          )}
+
+          {/* 答對反饋 */}
+          {active && solved && !allDone && (
+            <div className="mb-4 p-4 rounded-xl border-l-4 flex items-center justify-between gap-4" style={{ backgroundColor: `${C.ok}22`, borderColor: C.ok }}>
+              <p className="font-medium text-base flex-1" style={{ color: C.ok }}>{task.msg}</p>
+              <button
+                onClick={nextTask}
+                className="px-4 py-2 rounded-lg text-white font-semibold cursor-pointer shadow-sm hover:opacity-90 transition-all whitespace-nowrap"
+                style={{ backgroundColor: C.pri }}
+              >
+                {ti < total - 1 ? `下一題 (${ti + 2}/${total})` : '完成本段 ✓'}
+              </button>
+            </div>
+          )}
+
+          {/* 本段任務全部完成展示 */}
+          {active && allDone && !done && (
+            <div className="mb-4">
+              <div className="p-4 rounded-xl border-l-4 mb-4" style={{ backgroundColor: `${C.ok}22`, borderColor: C.ok }}>
+                <p className="font-bold mb-3" style={{ color: C.ok }}>🎉 太棒了！這段的任務已全部完成！以下是整段對照翻譯：</p>
+                <div className="space-y-2">
+                  {para.sentences.map((s, i) => (
+                    <div key={i} className="p-3 rounded-lg bg-white/70">
+                      <p className="text-sm font-medium" style={{ color: C.text }}>{s.en}</p>
+                      <p className="text-sm mt-1" style={{ color: C.pri }}>→ {s.zh}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="text-center mt-4">
+                <button
+                  onClick={onDone}
+                  className="px-8 py-3 rounded-xl text-white font-bold text-lg shadow-md hover:opacity-90 transition-all cursor-pointer"
+                  style={{ backgroundColor: C.pri }}
+                >
+                  進入下一個段落 →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 英文段落內文 (可互動點擊單字) */}
+          <div className="text-lg leading-relaxed flex flex-wrap gap-y-2">
+            {para.sentences.map((sentence, sIdx) => (
+              <span key={sIdx} onClick={() => onSel(sentence)} className="cursor-pointer inline mr-2 hover:bg-black/5 rounded px-1 transition-colors">
+                {sentence.en.split(' ').map((word, wIdx) => {
+                  const cw = word.replace(/[.,!?"]/g, '').toLowerCase();
+                  const lit = isLit(cw);
+                  return (
+                    <span
+                      key={wIdx}
+                      onClick={(e) => { e.stopPropagation(); onWord(word, sentence); }}
+                      className={`inline-block mr-1 px-1 py-0.5 rounded transition-all ${lit ? 'font-bold' : ''}`}
+                      style={{
+                        backgroundColor: lit ? C.acc : 'transparent',
+                        color: lit ? '#333' : 'inherit',
+                        cursor: (active && !solved && !allDone) ? 'pointer' : 'default'
+                      }}
+                    >
+                      {word}
+                    </span>
+                  );
+                })}
+              </span>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function QuizBox({ quiz, name }) {
+      const [answers, setAnswers] = useState({});
+      const totalQ = quiz.length;
+      const allDone = totalQ > 0 && Object.keys(answers).length === totalQ;
+
+      let correct = 0;
+      if (allDone) {
+        for (let i = 0; i < totalQ; i++) {
+          if (answers[i] === quiz[i].ans) correct++;
+        }
+      }
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border p-6 md:p-8 shadow-sm" style={{ borderColor: C.bdr }}>
+            <h2 className="text-2xl font-bold text-center mb-6" style={{ color: C.pri }}>
+              📝 閱讀理解總測驗
+            </h2>
+
+            <div className="space-y-6">
+              {quiz.map((q, qi) => {
+                const answered = answers[qi] !== undefined;
+                const isOk = answers[qi] === q.ans;
+
+                return (
+                  <div key={qi} className="p-6 rounded-xl" style={{ backgroundColor: '#F8F7F4' }}>
+                    <h4 className="text-lg font-bold mb-4" style={{ color: '#4A4A4A' }}>
+                      {qi + 1}. {q.q}
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                      {q.opts.map((opt, oi) => {
+                        let bg = 'white', clr = C.text, bdr = C.bdr, op = 1;
+                        if (answered) {
+                          if (oi === q.ans) { bg = C.ok; clr = 'white'; bdr = C.ok; }
+                          else if (oi === answers[qi]) { bg = C.err; clr = 'white'; bdr = C.err; }
+                          else { op = 0.5; }
+                        }
+
+                        return (
+                          <div
+                            key={oi}
+                            onClick={() => {
+                              if (!answered) {
+                                setAnswers(prev => ({ ...prev, [qi]: oi }));
+                              }
+                            }}
+                            className="p-3 rounded-lg border-2 font-medium transition-all cursor-pointer text-sm md:text-base"
+                            style={{
+                              backgroundColor: bg,
+                              color: clr,
+                              borderColor: bdr,
+                              opacity: op
+                            }}
+                          >
+                            {String.fromCharCode(65 + oi)}. {opt}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {answered && (
+                      <div
+                        className="p-3 rounded-lg text-sm leading-relaxed border-l-4"
+                        style={{
+                          backgroundColor: (isOk ? C.ok : C.err) + '22',
+                          borderColor: isOk ? C.ok : C.err
+                        }}
+                      >
+                        {isOk ? '✅ 答對了！' : '❌ 答錯囉！'} {q.exp}
+                      </div>
+                    )}
                   </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 結業證書區塊 */}
+          {allDone && (
+            <div className="p-1 rounded-2xl shadow-xl" style={{ background: `linear-gradient(135deg, ${C.acc}, ${C.pri})` }}>
+              <div className="bg-white rounded-xl p-8 md:p-12 text-center">
+                <div className="text-6xl mb-4">🏆</div>
+                <h2 className="text-xs tracking-widest text-gray-400 uppercase font-bold mb-2">Certificate of Completion</h2>
+                <h1 className="text-3xl font-bold mb-4" style={{ color: C.pri }}>閱讀理解完成證書</h1>
+                <div className="w-20 h-0.5 mx-auto mb-6" style={{ backgroundColor: C.acc }} />
+
+                <p className="text-lg text-gray-500 mb-2">茲證明同學</p>
+                <p className="text-4xl font-extrabold mb-4" style={{ color: C.text }}>{name}</p>
+                <p className="text-lg text-gray-500 mb-6">已成功完成英文閱讀理解互動課程與綜合測驗</p>
+
+                <div className="inline-block p-6 rounded-xl mb-6 min-w-[240px]" style={{ backgroundColor: C.bg }}>
+                  <p className="text-sm text-gray-500 mb-1">測驗得分</p>
+                  <p className="text-4xl font-bold" style={{ color: correct === totalQ ? C.ok : C.pri }}>
+                    {correct} / {totalQ}
+                  </p>
+                  <p className="text-sm font-semibold mt-2" style={{ color: C.text }}>
+                    {correct === totalQ ? '🌟 滿分！太厲害了！' : correct >= totalQ * 0.6 ? '👏 表現非常優異！' : '💪 再接再厲！'}
+                  </p>
                 </div>
 
-                <div className="p-6 flex flex-col gap-6">
-                  
-                  <div className="bg-white rounded-lg border-2 border-gray-200 p-5 shadow-sm w-full">
-                    <div className="flex items-center justify-between mb-4 border-b pb-2">
-                      <h3 className="text-lg font-bold">互動控制與參數設定</h3>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={handlePlayPause}
-                          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-semibold text-sm transition-colors"
-                        >
-                          {isPlaying ? (
-                            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> 暫停</>
-                          ) : (
-                            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> {t >= maxT ? '重新演示' : '自動演示'}</>
-                          )}
-                        </button>
-                        <button 
-                          onClick={handleReset}
-                          className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg font-semibold text-sm transition-colors"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> 重置
-                        </button>
-                      </div>
-                    </div>
+                <p className="text-xs text-gray-400">完成日期：{new Date().toLocaleDateString('zh-TW')}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4 border-b pb-4 bg-gray-50 p-4 rounded-lg">
-                      <div>
-                        <div className="flex justify-between text-sm text-gray-700 font-semibold mb-1">
-                          <span>教學模式: {a === 1 ? "幾時幾分 (五個一數)" : "兩整點數 (經過時間)"}</span>
-                        </div>
-                        <input type="range" min="1" max="2" step="1" value={a} onChange={(e) => { setA(parseInt(e.target.value)); setIsPlaying(false); }} className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm text-gray-700 font-semibold mb-1">
-                          <span>起始時刻: {k} 點鐘</span>
-                        </div>
-                        <input type="range" min="1" max="12" step="1" value={k} onChange={(e) => { setK(parseInt(e.target.value)); setIsPlaying(false); }} className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm text-gray-700 font-semibold mb-1">
-                          <span>{a === 1 ? `目標分鐘: ${h * 5} 分` : `目標經過: ${h} 小時`}</span>
-                        </div>
-                        <input type="range" min="1" max="11" step="1" value={h} onChange={(e) => { setH(parseInt(e.target.value)); setIsPlaying(false); }} className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
-                      </div>
-                    </div>
+    function ElemView({ data, name }) {
+      const [selIdx, setSelIdx] = useState(0);
 
-                    <div className="px-2">
-                      <div className="flex justify-between text-sm font-medium text-gray-600 mb-2">
-                        <span>操作起點</span>
-                        <span>撥動進程: <span className="text-emerald-600 text-lg font-bold">{(t * 10).toFixed(0)}%</span></span>
-                        <span>目標時刻</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.05"
-                        value={t}
-                        onChange={(e) => {
-                          setT(parseFloat(e.target.value));
-                          setIsPlaying(false);
-                        }}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-                      />
-                    </div>
+      return (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border p-6 md:p-8 shadow-sm" style={{ borderColor: C.bdr }}>
+            <h2 className="text-2xl font-bold text-center mb-6" style={{ color: C.pri }}>
+              💬 互動對話朗讀練習 (國小入門組)
+            </h2>
+
+            <div className="space-y-4">
+              {data.dialogue.map((item, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => { setSelIdx(idx); speak(item.english); }}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-4 ${selIdx === idx ? 'shadow-md' : ''}`}
+                  style={{
+                    borderColor: selIdx === idx ? C.pri : C.bdr,
+                    backgroundColor: selIdx === idx ? `${C.pri}11` : 'white'
+                  }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-lg shrink-0"
+                    style={{ backgroundColor: item.speaker === 'A' ? C.pri : C.acc }}
+                  >
+                    {item.speaker}
                   </div>
+                  <div className="flex-1">
+                    <p className="text-lg font-medium" style={{ color: C.text }}>{item.english}</p>
+                    <p className="text-sm mt-1" style={{ color: C.textL }}>{item.chinese}</p>
+                  </div>
+                  <button className="text-2xl hover:scale-110 transition-transform">🔊</button>
+                </div>
+              ))}
+            </div>
+          </div>
 
-                  <div className="flex flex-col lg:flex-row gap-6">
-                    
-                    <div className="w-full lg:w-2/3 flex flex-col">
-                      <h2 className="text-xl font-bold mb-4 border-b-2 border-emerald-500 pb-2">操作鐘面展示</h2>
-                      <div className="relative w-full aspect-square bg-[#f8fafc] rounded-lg border-2 border-gray-200 overflow-hidden shadow-inner flex items-center justify-center">
-                        <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full max-w-[500px]">
-                          
+          {/* 核心單字卡 */}
+          {data.keyVocab && data.keyVocab.length > 0 && (
+            <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: C.bdr }}>
+              <h3 className="text-xl font-bold mb-4" style={{ color: C.pri }}>🌟 本課核心單字卡</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {data.keyVocab.map((v, i) => (
+                  <div key={i} className="p-4 rounded-xl border" style={{ backgroundColor: C.bg, borderColor: C.bdr }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xl font-bold" style={{ color: C.pri }}>{v.word}</span>
+                      <button onClick={() => speak(v.word)} className="text-lg hover:scale-110 transition-transform">🔊</button>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{v.translation}</p>
+                    <p className="text-xs text-gray-500 italic">例句: "{v.example}"</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 測驗區 */}
+          {data.quiz && data.quiz.length > 0 && (
+            <QuizBox quiz={data.quiz} name={name} />
+          )}
+        </div>
+      );
+    }
+
+    function UploadTab({ onNewLesson }) {
+      const [text, setText] = useState('');
+      const [level, setLevel] = useState('junior');
+      const [selectedPreset, setSelectedPreset] = useState(0);
+
+      function handleSelectPreset(index) {
+        setSelectedPreset(index);
+        setText(PRESET_ARTICLES[index].text);
+      }
+
+      function handleGenerate() {
+        if (!text.trim()) return;
+        const generated = localGenerate(text, level);
+        if (generated) {
+          onNewLesson(generated);
+        } else {
+          alert('請輸入有效的英文文章內容。');
+        }
+      }
+
+      return (
+        <div className="bg-white rounded-2xl border p-6 md:p-8 shadow-sm space-y-6" style={{ borderColor: C.bdr }}>
+          <div>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: C.pri }}>✍️ 課文與互動任務生成器</h2>
+            <p className="text-sm" style={{ color: C.textL }}>貼上任意英文文章，或選擇下方主題，系統將自動解析句型、生成思考任務與閱讀測驗。</p>
+          </div>
+
+          {/* 預設文章選擇按鈕 */}
+          <div>
+            <label className="block text-sm font-bold mb-2" style={{ color: C.text }}>選擇經典範例主題：</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {PRESET_ARTICLES.map((preset, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSelectPreset(idx)}
+                  className={`p-3 rounded-xl border text-left font-medium text-sm transition-all ${selectedPreset === idx ? 'shadow-sm' : 'hover:bg-gray-50'}`}
+                  style={{
+                    borderColor: selectedPreset === idx ? C.pri : C.bdr,
+                    backgroundColor: selectedPreset === idx ? `${C.pri}15` : 'white',
+                    color: selectedPreset === idx ? C.pri : C.text
+                  }}
+                >
+                  {preset.title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 文章輸入框 */}
+          <div>
+            <label className="block text-sm font-bold mb-2" style={{ color: C.text }}>英文文章內容：</label>
+            <textarea
+              rows={8}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="請在此貼上英文課文或新聞文章..."
+              className="w-full p-4 rounded-xl border outline-none font-sans text-base transition-all custom-scrollbar"
+              style={{ backgroundColor: C.bg, borderColor: C.bdr }}
+            />
+          </div>
+
+          {/* 難易度層級選擇 */}
+          <div>
+            <label className="block text-sm font-bold mb-2" style={{ color: C.text }}>選擇學習對象與模式：</label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setLevel('elementary')}
+                className={`p-4 rounded-xl border-2 font-bold text-center transition-all ${level === 'elementary' ? 'shadow-md' : 'opacity-70'}`}
+                style={{
+                  borderColor: level === 'elementary' ? C.pri : C.bdr,
+                  backgroundColor: level === 'elementary' ? `${C.pri}15` : 'white',
+                  color: level === 'elementary' ? C.pri : C.text
+                }}
+              >
+                🎒 國小/入門模式
+                <span className="block text-xs font-normal mt-1 opacity-80">對話朗讀與單字卡卡片</span>
+              </button>
+
+              <button
+                onClick={() => setLevel('junior')}
+                className={`p-4 rounded-xl border-2 font-bold text-center transition-all ${level === 'junior' ? 'shadow-md' : 'opacity-70'}`}
+                style={{
+                  borderColor: level === 'junior' ? C.pri : C.bdr,
+                  backgroundColor: level === 'junior' ? `${C.pri}15` : 'white',
+                  color: level === 'junior' ? C.pri : C.text
+                }}
+              >
+                🏫 國中/高中模式
+                <span className="block text-xs font-normal mt-1 opacity-80">段落拆解與思考解構任務</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 生成按鈕 */}
+          <button
+            onClick={handleGenerate}
+            disabled={!text.trim()}
+            className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-all ${text.trim() ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+            style={{ backgroundColor: C.pri }}
+          >
+            🚀 立即生成互動教材與測驗
+          </button>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
